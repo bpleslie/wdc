@@ -1,17 +1,16 @@
 <?php
 
 use Illuminate\Support\Str;
-use Illuminate\Support\HtmlString;
+use Illuminate\View\Expression;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Routing\UrlGenerator;
 use Illuminate\Contracts\Routing\ResponseFactory;
-use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Contracts\View\Factory as ViewFactory;
 use Illuminate\Contracts\Cookie\Factory as CookieFactory;
 use Illuminate\Database\Eloquent\Factory as EloquentFactory;
-use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 
 if (! function_exists('abort')) {
     /**
@@ -28,48 +27,6 @@ if (! function_exists('abort')) {
     function abort($code, $message = '', array $headers = [])
     {
         return app()->abort($code, $message, $headers);
-    }
-}
-
-if (! function_exists('abort_if')) {
-    /**
-     * Throw an HttpException with the given data if the given condition is true.
-     *
-     * @param  bool    $boolean
-     * @param  int     $code
-     * @param  string  $message
-     * @param  array   $headers
-     * @return void
-     *
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
-     * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
-     */
-    function abort_if($boolean, $code, $message = '', array $headers = [])
-    {
-        if ($boolean) {
-            abort($code, $message, $headers);
-        }
-    }
-}
-
-if (! function_exists('abort_unless')) {
-    /**
-     * Throw an HttpException with the given data unless the given condition is true.
-     *
-     * @param  bool    $boolean
-     * @param  int     $code
-     * @param  string  $message
-     * @param  array   $headers
-     * @return void
-     *
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
-     * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
-     */
-    function abort_unless($boolean, $code, $message = '', array $headers = [])
-    {
-        if (! $boolean) {
-            abort($code, $message, $headers);
-        }
     }
 }
 
@@ -137,16 +94,11 @@ if (! function_exists('auth')) {
     /**
      * Get the available auth instance.
      *
-     * @param  string|null  $guard
-     * @return \Illuminate\Contracts\Auth\Factory
+     * @return \Illuminate\Contracts\Auth\Guard
      */
-    function auth($guard = null)
+    function auth()
     {
-        if (is_null($guard)) {
-            return app(AuthFactory::class);
-        } else {
-            return app(AuthFactory::class)->guard($guard);
-        }
+        return app(Guard::class);
     }
 }
 
@@ -257,11 +209,11 @@ if (! function_exists('csrf_field')) {
     /**
      * Generate a CSRF token form field.
      *
-     * @return \Illuminate\Support\HtmlString
+     * @return string
      */
     function csrf_field()
     {
-        return new HtmlString('<input type="hidden" name="_token" value="'.csrf_token().'">');
+        return new Expression('<input type="hidden" name="_token" value="'.csrf_token().'">');
     }
 }
 
@@ -271,7 +223,7 @@ if (! function_exists('csrf_token')) {
      *
      * @return string
      *
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     function csrf_token()
     {
@@ -298,16 +250,17 @@ if (! function_exists('database_path')) {
     }
 }
 
-if (! function_exists('decrypt')) {
+if (! function_exists('delete')) {
     /**
-     * Decrypt the given value.
+     * Register a new DELETE route with the router.
      *
-     * @param  string  $value
-     * @return string
+     * @param  string  $uri
+     * @param  \Closure|array|string  $action
+     * @return \Illuminate\Routing\Route
      */
-    function decrypt($value)
+    function delete($uri, $action)
     {
-        return app('encrypter')->decrypt($value);
+        return app('router')->delete($uri, $action);
     }
 }
 
@@ -329,40 +282,23 @@ if (! function_exists('elixir')) {
      * Get the path to a versioned Elixir file.
      *
      * @param  string  $file
-     * @param  string  $buildDirectory
      * @return string
      *
      * @throws \InvalidArgumentException
      */
-    function elixir($file, $buildDirectory = 'build')
+    function elixir($file)
     {
-        static $manifest;
-        static $manifestPath;
+        static $manifest = null;
 
-        if (is_null($manifest) || $manifestPath !== $buildDirectory) {
-            $manifest = json_decode(file_get_contents(public_path($buildDirectory.'/rev-manifest.json')), true);
-
-            $manifestPath = $buildDirectory;
+        if (is_null($manifest)) {
+            $manifest = json_decode(file_get_contents(public_path('build/rev-manifest.json')), true);
         }
 
         if (isset($manifest[$file])) {
-            return '/'.trim($buildDirectory.'/'.$manifest[$file], '/');
+            return '/build/'.$manifest[$file];
         }
 
         throw new InvalidArgumentException("File {$file} not defined in asset manifest.");
-    }
-}
-
-if (! function_exists('encrypt')) {
-    /**
-     * Encrypt the given value.
-     *
-     * @param  string  $value
-     * @return string
-     */
-    function encrypt($value)
-    {
-        return app('encrypter')->encrypt($value);
     }
 }
 
@@ -443,6 +379,20 @@ if (! function_exists('factory')) {
     }
 }
 
+if (! function_exists('get')) {
+    /**
+     * Register a new GET route with the router.
+     *
+     * @param  string  $uri
+     * @param  \Closure|array|string  $action
+     * @return \Illuminate\Routing\Route
+     */
+    function get($uri, $action)
+    {
+        return app('router')->get($uri, $action);
+    }
+}
+
 if (! function_exists('info')) {
     /**
      * Write some information to the log.
@@ -463,7 +413,7 @@ if (! function_exists('logger')) {
      *
      * @param  string  $message
      * @param  array  $context
-     * @return \Illuminate\Contracts\Logging\Log|null
+     * @return null|\Illuminate\Contracts\Logging\Log
      */
     function logger($message = null, array $context = [])
     {
@@ -480,11 +430,11 @@ if (! function_exists('method_field')) {
      * Generate a form field to spoof the HTTP verb used by forms.
      *
      * @param  string  $method
-     * @return \Illuminate\Support\HtmlString
+     * @return string
      */
     function method_field($method)
     {
-        return new HtmlString('<input type="hidden" name="_method" value="'.$method.'">');
+        return new Expression('<input type="hidden" name="_method" value="'.$method.'">');
     }
 }
 
@@ -499,6 +449,20 @@ if (! function_exists('old')) {
     function old($key = null, $default = null)
     {
         return app('request')->old($key, $default);
+    }
+}
+
+if (! function_exists('patch')) {
+    /**
+     * Register a new PATCH route with the router.
+     *
+     * @param  string  $uri
+     * @param  \Closure|array|string  $action
+     * @return \Illuminate\Routing\Route
+     */
+    function patch($uri, $action)
+    {
+        return app('router')->patch($uri, $action);
     }
 }
 
@@ -517,6 +481,20 @@ if (! function_exists('policy')) {
     }
 }
 
+if (! function_exists('post')) {
+    /**
+     * Register a new POST route with the router.
+     *
+     * @param  string  $uri
+     * @param  \Closure|array|string  $action
+     * @return \Illuminate\Routing\Route
+     */
+    function post($uri, $action)
+    {
+        return app('router')->post($uri, $action);
+    }
+}
+
 if (! function_exists('public_path')) {
     /**
      * Get the path to the public folder.
@@ -527,6 +505,20 @@ if (! function_exists('public_path')) {
     function public_path($path = '')
     {
         return app()->make('path.public').($path ? DIRECTORY_SEPARATOR.$path : $path);
+    }
+}
+
+if (! function_exists('put')) {
+    /**
+     * Register a new PUT route with the router.
+     *
+     * @param  string  $uri
+     * @param  \Closure|array|string  $action
+     * @return \Illuminate\Routing\Route
+     */
+    function put($uri, $action)
+    {
+        return app('router')->put($uri, $action);
     }
 }
 
@@ -568,16 +560,18 @@ if (! function_exists('request')) {
     }
 }
 
-if (! function_exists('resource_path')) {
+if (! function_exists('resource')) {
     /**
-     * Get the path to the resources folder.
+     * Route a resource to a controller.
      *
-     * @param  string  $path
-     * @return string
+     * @param  string  $name
+     * @param  string  $controller
+     * @param  array   $options
+     * @return \Illuminate\Routing\Route
      */
-    function resource_path($path = '')
+    function resource($name, $controller, array $options = [])
     {
-        return app()->basePath().DIRECTORY_SEPARATOR.'resources'.($path ? DIRECTORY_SEPARATOR.$path : $path);
+        return app('router')->resource($name, $controller, $options);
     }
 }
 
@@ -609,11 +603,12 @@ if (! function_exists('route')) {
      * @param  string  $name
      * @param  array   $parameters
      * @param  bool    $absolute
+     * @param  \Illuminate\Routing\Route  $route
      * @return string
      */
-    function route($name, $parameters = [], $absolute = true)
+    function route($name, $parameters = [], $absolute = true, $route = null)
     {
-        return app('url')->route($name, $parameters, $absolute);
+        return app('url')->route($name, $parameters, $absolute, $route);
     }
 }
 
@@ -689,7 +684,7 @@ if (! function_exists('trans')) {
      * @param  array   $parameters
      * @param  string  $domain
      * @param  string  $locale
-     * @return \Symfony\Component\Translation\TranslatorInterface|string
+     * @return string
      */
     function trans($id = null, $parameters = [], $domain = 'messages', $locale = null)
     {
@@ -706,7 +701,7 @@ if (! function_exists('trans_choice')) {
      * Translates the given message based on a count.
      *
      * @param  string  $id
-     * @param  int|array|\Countable  $number
+     * @param  int     $number
      * @param  array   $parameters
      * @param  string  $domain
      * @param  string  $locale
@@ -725,37 +720,11 @@ if (! function_exists('url')) {
      * @param  string  $path
      * @param  mixed   $parameters
      * @param  bool    $secure
-     * @return Illuminate\Contracts\Routing\UrlGenerator|string
+     * @return string
      */
     function url($path = null, $parameters = [], $secure = null)
     {
-        if (is_null($path)) {
-            return app(UrlGenerator::class);
-        }
-
         return app(UrlGenerator::class)->to($path, $parameters, $secure);
-    }
-}
-
-if (! function_exists('validator')) {
-    /**
-     * Create a new Validator instance.
-     *
-     * @param  array  $data
-     * @param  array  $rules
-     * @param  array  $messages
-     * @param  array  $customAttributes
-     * @return \Illuminate\Contracts\Validation\Validator
-     */
-    function validator(array $data = [], array $rules = [], array $messages = [], array $customAttributes = [])
-    {
-        $factory = app(ValidationFactory::class);
-
-        if (func_num_args() === 0) {
-            return $factory;
-        }
-
-        return $factory->make($data, $rules, $messages, $customAttributes);
     }
 }
 

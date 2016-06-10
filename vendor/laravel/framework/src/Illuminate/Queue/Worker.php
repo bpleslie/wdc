@@ -127,8 +127,11 @@ class Worker
      */
     protected function daemonShouldRun()
     {
-        return $this->manager->isDownForMaintenance()
-                    ? false : $this->events->until('illuminate.queue.looping') !== false;
+        if ($this->manager->isDownForMaintenance()) {
+            return false;
+        }
+
+        return $this->events->until('illuminate.queue.looping') !== false;
     }
 
     /**
@@ -143,23 +146,17 @@ class Worker
      */
     public function pop($connectionName, $queue = null, $delay = 0, $sleep = 3, $maxTries = 0)
     {
-        try {
-            $connection = $this->manager->connection($connectionName);
+        $connection = $this->manager->connection($connectionName);
 
-            $job = $this->getNextJob($connection, $queue);
+        $job = $this->getNextJob($connection, $queue);
 
-            // If we're able to pull a job off of the stack, we will process it and
-            // then immediately return back out. If there is no job on the queue
-            // we will "sleep" the worker for the specified number of seconds.
-            if (! is_null($job)) {
-                return $this->process(
-                    $this->manager->getName($connectionName), $job, $maxTries, $delay
-                );
-            }
-        } catch (Exception $e) {
-            if ($this->exceptions) {
-                $this->exceptions->report($e);
-            }
+        // If we're able to pull a job off of the stack, we will process it and
+        // then immediately return back out. If there is no job on the queue
+        // we will "sleep" the worker for the specified number of seconds.
+        if (! is_null($job)) {
+            return $this->process(
+                $this->manager->getName($connectionName), $job, $maxTries, $delay
+            );
         }
 
         $this->sleep($sleep);
@@ -205,65 +202,29 @@ class Worker
         }
 
         try {
-            $this->raiseBeforeJobEvent($connection, $job);
-
-            // First we will fire off the job. Once it is done we will see if it will be
-            // automatically deleted after processing and if so we'll fire the delete
-            // method on the job. Otherwise, we will just keep on running our jobs.
+            // First we will fire off the job. Once it is done we will see if it will
+            // be auto-deleted after processing and if so we will go ahead and run
+            // the delete method on the job. Otherwise we will just keep moving.
             $job->fire();
 
             $this->raiseAfterJobEvent($connection, $job);
 
             return ['job' => $job, 'failed' => false];
         } catch (Exception $e) {
-            $this->handleJobException($connection, $job, $delay, $e);
-        } catch (Throwable $e) {
-            $this->handleJobException($connection, $job, $delay, $e);
-        }
-    }
-
-    /**
-     * Handle an exception that occurred while the job was running.
-     *
-     * @param  string  $connection
-     * @param  \Illuminate\Contracts\Queue\Job  $job
-     * @param  int  $delay
-     * @param  \Throwable  $e
-     * @return void
-     *
-     * @throws \Throwable
-     */
-    protected function handleJobException($connection, Job $job, $delay, $e)
-    {
-        // If we catch an exception, we will attempt to release the job back onto
-        // the queue so it is not lost. This will let is be retried at a later
-        // time by another listener (or the same one). We will do that here.
-        try {
-            $this->raiseExceptionOccurredJobEvent(
-                $connection, $job, $e
-            );
-        } finally {
+            // If we catch an exception, we will attempt to release the job back onto
+            // the queue so it is not lost. This will let is be retried at a later
+            // time by another listener (or the same one). We will do that here.
             if (! $job->isDeleted()) {
                 $job->release($delay);
             }
-        }
 
-        throw $e;
-    }
+            throw $e;
+        } catch (Throwable $e) {
+            if (! $job->isDeleted()) {
+                $job->release($delay);
+            }
 
-    /**
-     * Raise the before queue job event.
-     *
-     * @param  string  $connection
-     * @param  \Illuminate\Contracts\Queue\Job  $job
-     * @return void
-     */
-    protected function raiseBeforeJobEvent($connection, Job $job)
-    {
-        if ($this->events) {
-            $data = json_decode($job->getRawBody(), true);
-
-            $this->events->fire(new Events\JobProcessing($connection, $job, $data));
+            throw $e;
         }
     }
 
@@ -279,24 +240,7 @@ class Worker
         if ($this->events) {
             $data = json_decode($job->getRawBody(), true);
 
-            $this->events->fire(new Events\JobProcessed($connection, $job, $data));
-        }
-    }
-
-    /**
-     * Raise the exception occurred queue job event.
-     *
-     * @param  string  $connection
-     * @param  \Illuminate\Contracts\Queue\Job  $job
-     * @param  \Throwable  $exception
-     * @return void
-     */
-    protected function raiseExceptionOccurredJobEvent($connection, Job $job, $exception)
-    {
-        if ($this->events) {
-            $data = json_decode($job->getRawBody(), true);
-
-            $this->events->fire(new Events\JobExceptionOccurred($connection, $job, $data, $exception));
+            $this->events->fire('illuminate.queue.after', [$connection, $job, $data]);
         }
     }
 
@@ -334,7 +278,7 @@ class Worker
         if ($this->events) {
             $data = json_decode($job->getRawBody(), true);
 
-            $this->events->fire(new Events\JobFailed($connection, $job, $data));
+            $this->events->fire('illuminate.queue.failed', [$connection, $job, $data]);
         }
     }
 
@@ -356,7 +300,7 @@ class Worker
      */
     public function stop()
     {
-        $this->events->fire(new Events\WorkerStopping);
+        $this->events->fire('illuminate.queue.stopping');
 
         die;
     }

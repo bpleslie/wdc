@@ -28,7 +28,7 @@
                             <div class="form-group">
                                 <label for="retailer" class="col-md-3 control-label">Retailer</label>
                                 <div class="col-md-3">
-                                    <p class="form-control-static">{{ $retailer }}</p>
+                                    <p class="form-control-static">{{ $retailer->name }}</p>
                                 </div>
                             </div>
 

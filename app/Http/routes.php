@@ -10,7 +10,15 @@ $router->get('contact', 'ContactController@showForm');
 Route::post('contact', 'ContactController@sendContactInfo');
 get('rss', 'BlogController@rss');
 get('sitemap.xml', 'BlogController@siteMap');
-$router->get('retailer', 'RetailerController@index');
+
+// retailer pages
+get('retailer/map', 'RetailerController@index');
+get('retailer', function() {
+    return redirect('/retailer/map');
+});
+get('retailer/list', 'RetailerController@list');
+get('retailer/{id}', 'RetailerController@showRetailer');
+
 
 
 // Admin area

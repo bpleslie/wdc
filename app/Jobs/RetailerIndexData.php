@@ -3,22 +3,21 @@
 namespace App\Jobs;
 
 use App\Retailer;
-use App\Tag;
 use Carbon\Carbon;
 use Illuminate\Contracts\Bus\SelfHandling;
 
 class RetailerIndexData extends Job implements SelfHandling
 {
-    protected $tag;
+    protected $retailer;
 
     /**
      * Constructor
      *
-     * @param string|null $tag
+     * @param string|null $retailer
      */
-    public function __construct($tag)
+    public function __construct($retailer)
     {
-        $this->tag = $tag;
+        $this->retailer = $retailer;
     }
 
     /**
@@ -28,8 +27,8 @@ class RetailerIndexData extends Job implements SelfHandling
      */
     public function handle()
     {
-        if ($this->tag) {
-            return $this->tagIndexData($this->tag);
+        if ($this->retailer) {
+            return $this->retailerIndexData($this->retailer);
         }
 
         return $this->normalIndexData();
@@ -45,45 +44,32 @@ class RetailerIndexData extends Job implements SelfHandling
         $retailers = Retailer::all();
 
         return [
-            'title' => config('retailer.title'),
-            'subtitle' => config('retailer.subtitle'),
+            'name' => config('retailer.name'),
+            'street' => config('retailer.street'),
             'retailers' => $retailers,
             'meta_description' => config('retailer.description'),
             'reverse_direction' => false,
-            'tag' => null,
+            'retailer' => null,
         ];
     }
 
     /**
-     * Return data for a tag index page
+     * Return data for a retailer index page
      *
-     * @param string $tag
+     * @param string $retailer
      * @return array
      */
-    protected function tagIndexData($tag)
+    protected function retailerIndexData($retailer)
     {
-        $tag = Tag::where('tag', $tag)->firstOrFail();
-        $reverse_direction = (bool)$tag->reverse_direction;
-
-        $posts = Post::where('published_at', '<=', Carbon::now())
-            ->whereHas('tags', function ($q) use ($tag) {
-                $q->where('tag', '=', $tag->tag);
-            })
-            ->where('is_draft', 0)
-            ->orderBy('published_at', $reverse_direction ? 'asc' : 'desc')
-            ->simplePaginate(config('retailer.posts_per_page'));
-        $posts->addQuery('tag', $tag->tag);
-
-        $page_image = $tag->page_image ?: config('retailer.page_image');
+        $retailer = Retailer::where('id', $retailer->id)->firstOrFail();
+        $reverse_direction = (bool)$retailer->reverse_direction;
 
         return [
-            'title' => $tag->title,
-            'subtitle' => $tag->subtitle,
-            'posts' => $posts,
-            'page_image' => $page_image,
-            'tag' => $tag,
+            'title' => $retailer->title,
+            'subtitle' => $retailer->subtitle,
+            'retailer' => $retailer,
             'reverse_direction' => $reverse_direction,
-            'meta_description' => $tag->meta_description ?: config('retailer.description'),
+            'meta_description' => $retailer->meta_description ?: config('retailer.description'),
         ];
     }
 }

@@ -57,6 +57,18 @@ class RetailerController extends Controller
         foreach (array_keys($this->fields) as $field) {
             $retailer->$field = $request->get($field);
         }
+        
+        // calculate the lat / long & save
+        $latLong = $this->getLatLong($request);
+
+        if ( $latLong[0] ) {
+            $retailer->lat = $latLong[0];
+        }
+
+        if ( $latLong[1] ) {
+            $retailer->long = $latLong[1];
+        }
+
         $retailer->save();
 
         return redirect('/admin/retailer')
@@ -77,6 +89,10 @@ class RetailerController extends Controller
             $data[$field] = old($field, $retailer->$field);
         }
 
+        $latLong = $this->getLatLong($data);
+        $data['lat'] = old('lat', $latLong[0]);
+        $data['long'] = old('long', $latLong[1]);
+
         return view('admin.retailer.edit', $data);
     }
 
@@ -94,6 +110,19 @@ class RetailerController extends Controller
         foreach (array_keys(array_except($this->fields, ['retailer'])) as $field) {
             $retailer->$field = $request->get($field);
         }
+
+        // calculate the lat / long & save
+        $latLong = $this->getLatLong($request);
+
+        if ( $latLong[0] ) {
+            $retailer->lat = $latLong[0];
+        }
+
+        if ( $latLong[1] ) {
+            $retailer->long = $latLong[1];
+        }
+
+        // save retailer
         $retailer->save();
 
         return redirect("/admin/retailer/$id/edit")
@@ -113,5 +142,25 @@ class RetailerController extends Controller
 
         return redirect('/admin/retailer')
             ->withSuccess("The '$retailer->retailer' retailer has been deleted.");
+    }
+
+    public function getLatLong( $request )
+    {
+        if ( is_array($request) ) {
+            $address = str_replace(" ", "+", $request['street'] ) . '+'. $request['city'] . '+' . $request['state'] . '+' . $request['postcode'];
+            $region = $request['state'];
+        }
+    else {
+            $address = str_replace(" ", "+", $request->street ) . '+'. $request->city . '+' . $request->state . '+' . $request->postcode;
+            $region = $request->state;
+        }
+
+        $json = file_get_contents("http://maps.google.com/maps/api/geocode/json?address=$address&sensor=false&region=$region");
+        $json = json_decode($json);
+
+        $lat = $json->{'results'}[0]->{'geometry'}->{'location'}->{'lat'};
+        $long = $json->{'results'}[0]->{'geometry'}->{'location'}->{'lng'};
+
+        return [$lat , $long];
     }
 }

@@ -21,6 +21,8 @@ class CreateRetailersTable extends Migration
             $table->string('postcode');
             $table->string('country')->default('US');
             $table->string('meta_description');
+            $table->string('lat')->default('0');
+            $table->string('long')->default('0');
             $table->string('layout')->default('blog.layouts.index');
             $table->boolean('reverse_direction');
             $table->timestamps();

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Jobs\RetailerIndexData;
 use App\Http\Requests;
-use App\Post;
 use App\Services\RssFeed;
 use App\Services\SiteMap;
 use App\Retailer;
@@ -21,15 +20,11 @@ class RetailerController extends Controller
         return view($layout, $data);
     }
 
-    public function showPost($slug, Request $request)
+    public function showRetailer($id, Request $request)
     {
-        $post = Post::with('retailers')->whereSlug($slug)->firstOrFail();
-        $retailer = $request->get('retailer');
-        if ($retailer) {
-            $retailer = Retailer::whereRetailer($retailer)->firstOrFail();
-        }
+        $retailer = Retailer::whereId($id)->firstOrFail();
 
-        return view($post->layout, compact('post', 'retailer'));
+        return view('retailer.layouts.page', ['retailer' => $retailer ] );
     }
 
     public function rss(RssFeed $feed)
@@ -46,5 +41,12 @@ class RetailerController extends Controller
 
         return response($map)
             ->header('Content-type', 'text/xml');
+    }
+
+    public function list(Request $request)
+    {
+        $retailer = Retailer::all();
+
+        return view('retailer.layouts.list', ['retailers' => $retailer, 'meta_description' => 'Retailer List - Find a retailer near you']);
     }
 }

@@ -104,3 +104,23 @@
         </label>
     </div>
 </div>
+
+
+<div class="form-group">
+    <label for="lat" class="col-md-3 control-label">
+        Latitude
+    </label>
+    <div class="col-md-4">
+        <span>{{ $lat }}</span>
+    </div>
+</div>
+
+
+<div class="form-group">
+    <label for="long" class="col-md-3 control-label">
+        Longitude
+    </label>
+    <div class="col-md-4">
+        <span>{{ $long }}</span>
+    </div>
+</div>
